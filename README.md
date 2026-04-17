@@ -2,20 +2,18 @@
 
 Distribuição oficial do `cubos-kit` — ferramenta da Cubos para gerenciar prompts, skills e comandos do Claude Code.
 
-> Este repositório é a **fachada pública** de releases. O código-fonte é privado.
-
 ## Instalação
 
 ### Linux / macOS
 
 ```sh
-curl -fsSL https://git.cubos.io/cubos-kit/releases/-/raw/main/install.sh | sh
+curl -fsSL https://raw.githubusercontent.com/cubos/cubos-kit-releases/main/install.sh | sh
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-irm https://git.cubos.io/cubos-kit/releases/-/raw/main/install.ps1 | iex
+irm https://raw.githubusercontent.com/cubos/cubos-kit-releases/main/install.ps1 | iex
 ```
 
 ### Variáveis opcionais

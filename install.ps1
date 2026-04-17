@@ -1,19 +1,16 @@
 # cubos-kit installer (Windows / PowerShell)
 #
 # Usage:
-#   irm https://git.cubos.io/cubos-kit/releases/-/raw/main/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/cubos/cubos-kit-releases/main/install.ps1 | iex
 #
 # Environment variables:
-#   CUBOS_KIT_VERSION  Specific version to install (default: latest)
+#   CUBOS_KIT_VERSION  Specific version to install, e.g. v0.2.0 (default: latest)
 #   INSTALL_DIR        Where to install the binary (default: $env:LOCALAPPDATA\cubos-kit\bin)
 
 $ErrorActionPreference = 'Stop'
 
-$GitLabHost    = if ($env:CUBOS_KIT_GITLAB_HOST) { $env:CUBOS_KIT_GITLAB_HOST } else { 'git.cubos.io' }
-$ProjectPath   = if ($env:CUBOS_KIT_PROJECT_PATH) { $env:CUBOS_KIT_PROJECT_PATH } else { 'cubos-kit/releases' }
-$ProjectIdEnc  = $ProjectPath -replace '/', '%2F'
-$InstallDir    = if ($env:INSTALL_DIR) { $env:INSTALL_DIR } else { Join-Path $env:LOCALAPPDATA 'cubos-kit\bin' }
-$PackageName   = 'cubos-kit'
+$GitHubRepo = if ($env:CUBOS_KIT_REPO) { $env:CUBOS_KIT_REPO } else { 'cubos/cubos-kit-releases' }
+$InstallDir = if ($env:INSTALL_DIR)    { $env:INSTALL_DIR }    else { Join-Path $env:LOCALAPPDATA 'cubos-kit\bin' }
 
 function Info($msg)  { Write-Host "==> $msg" -ForegroundColor Blue }
 function Warn($msg)  { Write-Host "!!! $msg" -ForegroundColor Yellow }
@@ -28,32 +25,29 @@ function Get-Platform {
   return "win32-$arch"
 }
 
-function Resolve-Version {
-  if ($env:CUBOS_KIT_VERSION) { return $env:CUBOS_KIT_VERSION }
-  $url = "https://$GitLabHost/api/v4/projects/$ProjectIdEnc/releases/permalink/latest"
-  try {
-    $r = Invoke-RestMethod -Uri $url -Method Get
-  } catch {
-    Die "could not resolve latest version from $url ($_)"
+function Get-ReleaseUrl($version, $asset) {
+  if ($version -eq 'latest') {
+    return "https://github.com/$GitHubRepo/releases/latest/download/$asset"
   }
-  if (-not $r.tag_name) { Die "no tag_name in release response" }
-  return $r.tag_name
+  return "https://github.com/$GitHubRepo/releases/download/$version/$asset"
 }
 
 $platform = Get-Platform
-$version  = Resolve-Version
+$version  = if ($env:CUBOS_KIT_VERSION) { $env:CUBOS_KIT_VERSION } else { 'latest' }
 $archive  = "cubos-kit-$platform.zip"
-$base     = "https://$GitLabHost/api/v4/projects/$ProjectIdEnc/packages/generic/$PackageName/$version"
 
 Info "Installing cubos-kit $version ($platform) to $InstallDir"
 
 $tmp = New-Item -ItemType Directory -Path (Join-Path $env:TEMP "cubos-kit-$([guid]::NewGuid())")
 try {
+  $archiveUrl = Get-ReleaseUrl $version $archive
+  $shaUrl     = Get-ReleaseUrl $version "$archive.sha256"
+
   Info "Downloading $archive"
-  Invoke-WebRequest -Uri "$base/$archive" -OutFile (Join-Path $tmp $archive)
+  Invoke-WebRequest -Uri $archiveUrl -OutFile (Join-Path $tmp $archive)
 
   Info "Verifying checksum"
-  Invoke-WebRequest -Uri "$base/$archive.sha256" -OutFile (Join-Path $tmp "$archive.sha256")
+  Invoke-WebRequest -Uri $shaUrl -OutFile (Join-Path $tmp "$archive.sha256")
   $expected = (Get-Content (Join-Path $tmp "$archive.sha256") -Raw).Split()[0].ToLower()
   $actual   = (Get-FileHash (Join-Path $tmp $archive) -Algorithm SHA256).Hash.ToLower()
   if ($expected -ne $actual) { Die "checksum verification failed" }

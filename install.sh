@@ -2,19 +2,16 @@
 # cubos-kit installer
 #
 # Usage:
-#   curl -fsSL https://git.cubos.io/cubos-kit/releases/-/raw/main/install.sh | sh
+#   curl -fsSL https://raw.githubusercontent.com/cubos/cubos-kit-releases/main/install.sh | sh
 #
 # Environment variables:
-#   CUBOS_KIT_VERSION  Specific version to install (default: latest)
+#   CUBOS_KIT_VERSION  Specific version to install, e.g. v0.2.0 (default: latest)
 #   INSTALL_DIR        Where to install the binary (default: $HOME/.local/bin)
 
 set -eu
 
-GITLAB_HOST="${CUBOS_KIT_GITLAB_HOST:-git.cubos.io}"
-PROJECT_PATH="${CUBOS_KIT_PROJECT_PATH:-cubos-kit/releases}"
-PROJECT_ID_ENCODED=$(printf '%s' "$PROJECT_PATH" | sed 's|/|%2F|g')
+GITHUB_REPO="${CUBOS_KIT_REPO:-cubos/cubos-kit-releases}"
 INSTALL_DIR="${INSTALL_DIR:-$HOME/.local/bin}"
-PACKAGE_NAME="cubos-kit"
 
 info()  { printf '\033[0;34m==>\033[0m %s\n' "$*"; }
 warn()  { printf '\033[0;33m!!!\033[0m %s\n' "$*" >&2; }
@@ -44,35 +41,34 @@ detect_platform() {
   printf '%s-%s' "$os" "$arch"
 }
 
-resolve_version() {
-  if [ -n "${CUBOS_KIT_VERSION:-}" ]; then
-    printf '%s' "$CUBOS_KIT_VERSION"
-    return
+release_url() {
+  version="$1"
+  asset="$2"
+  if [ "$version" = "latest" ]; then
+    printf 'https://github.com/%s/releases/latest/download/%s' "$GITHUB_REPO" "$asset"
+  else
+    printf 'https://github.com/%s/releases/download/%s/%s' "$GITHUB_REPO" "$version" "$asset"
   fi
-  url="https://$GITLAB_HOST/api/v4/projects/$PROJECT_ID_ENCODED/releases/permalink/latest"
-  version=$(curl --fail --silent --show-error --location "$url" \
-    | sed -n 's/.*"tag_name":"\([^"]*\)".*/\1/p' \
-    | head -n1)
-  [ -n "$version" ] || error "could not resolve latest version from $url"
-  printf '%s' "$version"
 }
 
 main() {
   platform=$(detect_platform)
-  version=$(resolve_version)
+  version="${CUBOS_KIT_VERSION:-latest}"
   archive="cubos-kit-${platform}.tar.gz"
-  base="https://$GITLAB_HOST/api/v4/projects/$PROJECT_ID_ENCODED/packages/generic/$PACKAGE_NAME/$version"
 
   info "Installing cubos-kit $version ($platform) to $INSTALL_DIR"
 
   tmp=$(mktemp -d)
   trap 'rm -rf "$tmp"' EXIT INT HUP TERM
 
+  archive_url=$(release_url "$version" "$archive")
+  sha_url=$(release_url "$version" "$archive.sha256")
+
   info "Downloading $archive"
-  curl --fail --silent --show-error --location --output "$tmp/$archive" "$base/$archive"
+  curl --fail --silent --show-error --location --output "$tmp/$archive" "$archive_url"
 
   info "Verifying checksum"
-  curl --fail --silent --show-error --location --output "$tmp/$archive.sha256" "$base/$archive.sha256"
+  curl --fail --silent --show-error --location --output "$tmp/$archive.sha256" "$sha_url"
   (cd "$tmp" && shasum -a 256 -c "$archive.sha256" >/dev/null 2>&1) \
     || error "checksum verification failed"
 
