@@ -7,13 +7,13 @@ Distribuição oficial do `cubos-kit` — ferramenta da Cubos para gerenciar pro
 ### Linux / macOS
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/cubos/cubos-kit-releases/main/install.sh | sh
+curl -fsSL https://kit.cubos.dev/install.sh | sh
 ```
 
 ### Windows (PowerShell)
 
 ```powershell
-irm https://raw.githubusercontent.com/cubos/cubos-kit-releases/main/install.ps1 | iex
+irm https://kit.cubos.dev/install.ps1 | iex
 ```
 
 ### Variáveis opcionais
