@@ -25,6 +25,20 @@ need_cmd curl
 need_cmd tar
 need_cmd uname
 
+# Print the sha256 of a file using whatever tool the system provides.
+# Linux distros ship sha256sum (coreutils); macOS/BSD ship shasum (Perl Digest::SHA).
+sha256_of() {
+  if command -v sha256sum >/dev/null 2>&1; then
+    sha256sum "$1" | awk '{print $1}'
+  elif command -v shasum >/dev/null 2>&1; then
+    shasum -a 256 "$1" | awk '{print $1}'
+  elif command -v openssl >/dev/null 2>&1; then
+    openssl dgst -sha256 "$1" | awk '{print $NF}'
+  else
+    error "no sha256 tool found (need one of: sha256sum, shasum, openssl)"
+  fi
+}
+
 detect_platform() {
   os=$(uname -s | tr '[:upper:]' '[:lower:]')
   arch=$(uname -m)
@@ -69,8 +83,11 @@ main() {
 
   info "Verifying checksum"
   curl --fail --silent --show-error --location --output "$tmp/$archive.sha256" "$sha_url"
-  (cd "$tmp" && shasum -a 256 -c "$archive.sha256" >/dev/null 2>&1) \
-    || error "checksum verification failed"
+  expected=$(awk '{print $1}' "$tmp/$archive.sha256")
+  [ -n "$expected" ] || error "could not read expected checksum from $archive.sha256"
+  actual=$(sha256_of "$tmp/$archive")
+  [ "$expected" = "$actual" ] \
+    || error "checksum mismatch for $archive (expected $expected, got $actual)"
 
   info "Extracting"
   tar -xzf "$tmp/$archive" -C "$tmp"
